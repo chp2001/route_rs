@@ -22,37 +22,15 @@ src/
     ├── netcdf.rs   # NetCDF output
     └── results.rs  # Simulation results storage
 ```
+## Dependencies
+* hdf5
+* netcdf
+* sqlite3
 
-## Module Descriptions
-
-### `main.rs`
-- Program entry point
-- Command-line argument parsing (future)
-- High-level orchestration of the simulation
-
-### `config.rs`
-- `ColumnConfig`: Database column name mapping
-- `OutputFormat`: Output format selection (CSV/NetCDF/Both)
-- `ChannelParams`: Channel hydraulic parameters
-
-### `network.rs`
-- `NetworkNode`: Individual network node representation
-- `NetworkTopology`: Complete network structure with topological ordering
-- Database operations for loading network structure and channel parameters
-
-### `state.rs`
-- `RoutingState`: Per-channel routing state (previous timestep values)
-- `NetworkState`: Complete network state including flows and external inputs
-
-### `routing.rs`
-- Core routing logic
-- `process_timestep`: Processes one simulation timestep for all nodes
-
-### `io/` module
-- `csv.rs`: CSV file operations (reading external flows, writing results)
-- `netcdf.rs`: NetCDF file writing
-- `results.rs`: In-memory storage for simulation results
-
+### on ubuntu
+```bash
+sudo apt install -y libhdf5-dev libnetcdf-dev libsqlit3-dev
+```
 ## Building and Running
 
 ```bash
@@ -62,19 +40,6 @@ cargo build --release
 # Run the simulation
 cargo run --release
 ```
-
-## Configuration
-
-Currently hardcoded in `main.rs`:
-- Database path: `tests/gage-10154200/config/gage-10154200_subset.gpkg`
-- CSV directory: `tests/gage-10154200/outputs/ngen/`
-- Output format: `OutputFormat::Both`
-- Internal timestep: 300 seconds
-
-## Output Files
-
-- CSV: `network_routing_results.csv`
-- NetCDF: `troute_output_YYYYMMDDHHMMSS.nc`
 
 ## Performance Optimizations
 
