@@ -67,14 +67,13 @@ fn main() -> Result<()> {
     let timesteps: Vec<f64> = (1..=max_external_steps)
         .map(|step| (step * 3600) as f64)
         .collect();
-    let first_timestep = reference_time + Duration::seconds(external_timestep_seconds as i64);
 
     let nc_filename = format!("troute_output_{}.nc", reference_time.format("%Y%m%d%H%M"));
     let netcdf_writer = init_netcdf_output(
         &nc_filename,
         topology.routing_order.len(),
         timesteps,
-        &first_timestep,
+        &reference_time,
     )?;
 
     // Create progress bar
