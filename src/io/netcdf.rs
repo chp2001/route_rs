@@ -88,6 +88,94 @@ pub fn init_netcdf_output(
     Ok(Arc::new(Mutex::new(file)))
 }
 
+pub fn write_batch(
+    output_file: &Arc<Mutex<FileMut>>,
+    batch: &[Arc<SimulationResults>],
+) -> Result<()> {
+    let mut file = output_file
+        .lock()
+        .map_err(|e| anyhow::anyhow!("Failed to acquire NetCDF file lock: {}", e))?;
+
+    // Get current index once
+    let feature_var = file
+        .variable("feature_id")
+        .ok_or_else(|| anyhow::anyhow!("feature_id variable not found"))?;
+    let start_idx = feature_var.len();
+
+    // Prepare all data arrays
+    let mut all_feature_ids = Vec::with_capacity(batch.len());
+    let mut all_flows = Vec::new();
+    let mut all_velocities = Vec::new();
+    let mut all_depths = Vec::new();
+
+    let expected_timesteps = file
+        .dimension("time")
+        .ok_or_else(|| anyhow::anyhow!("time dimension not found"))?
+        .len();
+
+    for results in batch {
+        all_feature_ids.push(results.feature_id);
+
+        // Downsample data
+        let actual_timesteps = results.flow_data.len();
+        let downsampling = actual_timesteps / expected_timesteps;
+
+        for i in (downsampling - 1..actual_timesteps).step_by(downsampling) {
+            all_flows.push(results.flow_data[i]);
+            all_velocities.push(results.velocity_data[i]);
+            all_depths.push(results.depth_data[i]);
+        }
+    }
+
+    // Write all feature IDs at once
+    let mut feature_var = file
+        .variable_mut("feature_id")
+        .ok_or_else(|| anyhow::anyhow!("feature_id variable not found"))?;
+    feature_var
+        .put_values(&all_feature_ids, start_idx..)
+        .context("Failed to write feature_ids")?;
+
+    // Reshape and write flow data
+    let flow_2d: Vec<Vec<f32>> = all_flows
+        .chunks(expected_timesteps)
+        .map(|chunk| chunk.to_vec())
+        .collect();
+
+    let mut flow_var = file
+        .variable_mut("flow")
+        .ok_or_else(|| anyhow::anyhow!("flow variable not found"))?;
+    for (i, row) in flow_2d.iter().enumerate() {
+        flow_var.put_values(row, (start_idx + i, ..))?;
+    }
+
+    // Similar for velocity and depth
+    let velocity_2d: Vec<Vec<f32>> = all_velocities
+        .chunks(expected_timesteps)
+        .map(|chunk| chunk.to_vec())
+        .collect();
+
+    let mut velocity_var = file
+        .variable_mut("velocity")
+        .ok_or_else(|| anyhow::anyhow!("velocity variable not found"))?;
+    for (i, row) in velocity_2d.iter().enumerate() {
+        velocity_var.put_values(row, (start_idx + i, ..))?;
+    }
+
+    let depth_2d: Vec<Vec<f32>> = all_depths
+        .chunks(expected_timesteps)
+        .map(|chunk| chunk.to_vec())
+        .collect();
+
+    let mut depth_var = file
+        .variable_mut("depth")
+        .ok_or_else(|| anyhow::anyhow!("depth variable not found"))?;
+    for (i, row) in depth_2d.iter().enumerate() {
+        depth_var.put_values(row, (start_idx + i, ..))?;
+    }
+
+    Ok(())
+}
+
 // Function to write results to NetCDF
 pub fn write_output(
     output_file: &Arc<Mutex<FileMut>>,

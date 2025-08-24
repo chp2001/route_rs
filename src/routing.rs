@@ -1,6 +1,6 @@
 use crate::config::ChannelParams;
 use crate::io::csv::load_external_flows;
-use crate::io::netcdf::write_output;
+use crate::io::netcdf::{write_batch, write_output};
 use crate::io::results::SimulationResults;
 use crate::mc_kernel;
 use crate::network::NetworkTopology;
@@ -130,22 +130,38 @@ fn process_node_all_timesteps(
     Ok(results)
 }
 
-// Writer thread function (unchanged)
 fn writer_thread(
     receiver: Receiver<WriterMessage>,
     output_file: Arc<Mutex<FileMut>>,
+    batch_size: usize, // e.g., 100 nodes
 ) -> Result<()> {
+    let mut batch = Vec::new();
+
     loop {
-        match receiver.recv() {
+        match receiver.recv_timeout(std::time::Duration::from_millis(100)) {
             Ok(WriterMessage::WriteResults(results)) => {
-                if let Err(e) = write_output(&output_file, &results) {
-                    eprintln!(
-                        "Error writing results for node {}: {}",
-                        results.feature_id, e
-                    );
+                batch.push(results);
+
+                // Write when batch is full
+                if batch.len() >= batch_size {
+                    write_batch(&output_file, &batch)?;
+                    batch.clear();
                 }
             }
-            Ok(WriterMessage::Shutdown) => break,
+            Ok(WriterMessage::Shutdown) => {
+                // Write remaining batch
+                if !batch.is_empty() {
+                    write_batch(&output_file, &batch)?;
+                }
+                break;
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                // Write partial batch on timeout to avoid holding data too long
+                if !batch.is_empty() && batch.len() > batch_size / 2 {
+                    write_batch(&output_file, &batch)?;
+                    batch.clear();
+                }
+            }
             Err(e) => {
                 eprintln!("Writer thread channel error: {}", e);
                 break;
@@ -378,7 +394,7 @@ pub fn process_routing_parallel(
     // Spawn writer thread
     let output_file_clone = Arc::clone(&output_file);
     let writer_handle = thread::spawn(move || {
-        if let Err(e) = writer_thread(writer_rx, output_file_clone) {
+        if let Err(e) = writer_thread(writer_rx, output_file_clone, 100) {
             eprintln!("Writer thread error: {}", e);
         }
     });
