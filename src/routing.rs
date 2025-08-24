@@ -103,6 +103,7 @@ fn process_node_all_timesteps(
             channel_params.twcc,
             channel_params.ncc,
             depth_p,
+            false,
         );
 
         results.flow_data.push(qdc);
