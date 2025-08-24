@@ -74,7 +74,13 @@ fn process_node_all_timesteps(
 
     for _timestep in 0..max_timesteps {
         if _timestep % upsampling == 0 {
-            external_flow = external_flows.pop_front().unwrap();
+            external_flow = external_flows.pop_front().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Failed to fetch qlateral from file for: {} at timestep {}",
+                    node_id,
+                    _timestep
+                )
+            })?;
         }
         upstream_flow = inflow.pop_front().unwrap_or(0.0);
 
