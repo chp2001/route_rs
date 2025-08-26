@@ -20,7 +20,7 @@ use routing::process_routing_parallel;
 
 fn main() -> Result<()> {
     // Configuration
-    let (_, csv_dir, db_path, internal_timestep_seconds) = get_args()?;
+    let (_, csv_dir, db_path, internal_timestep_seconds, output_dir) = get_args()?;
     let dt = internal_timestep_seconds as f32;
     let output_format = OutputFormat::NetCdf;
 
@@ -70,6 +70,7 @@ fn main() -> Result<()> {
 
     let nc_filename = format!("troute_output_{}.nc", reference_time.format("%Y%m%d%H%M"));
     let netcdf_writer = init_netcdf_output(
+        output_dir,
         &nc_filename,
         topology.routing_order.len(),
         timesteps,

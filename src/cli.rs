@@ -10,26 +10,24 @@ struct Args {
     route_dir: PathBuf,
 
     /// Internal timestep in seconds
-    #[arg(short, long, default_value_t = 3600)]
+    #[arg(short, long, default_value_t = 300)]
     internal_timestep_seconds: usize,
 }
 
-pub fn get_args() -> Result<(PathBuf, PathBuf, PathBuf, usize)> {
+pub fn get_args() -> Result<(PathBuf, PathBuf, PathBuf, usize, PathBuf)> {
     let args = Args::parse();
-    
+
     let root_dir = args.route_dir;
     let csv_dir = root_dir.join("outputs").join("ngen");
     let config_dir = root_dir.join("config");
-    
+    let output_dir = root_dir.join("outputs").join("troute");
+
     // Find the .gpkg file in the config directory
     let gpkg_file = config_dir
         .read_dir()
         .context("Failed to read config directory")?
         .filter_map(Result::ok)
-        .find(|entry| {
-            entry.path().extension()
-                .map_or(false, |ext| ext == "gpkg")
-        })
+        .find(|entry| entry.path().extension().map_or(false, |ext| ext == "gpkg"))
         .ok_or_else(|| anyhow::anyhow!("No .gpkg file found in config directory"))?
         .path();
 
@@ -38,5 +36,6 @@ pub fn get_args() -> Result<(PathBuf, PathBuf, PathBuf, usize)> {
         csv_dir,
         gpkg_file,
         args.internal_timestep_seconds,
+        output_dir,
     ))
 }

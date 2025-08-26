@@ -2,16 +2,18 @@ use crate::io::results::SimulationResults;
 use anyhow::{Context, Result};
 use chrono::NaiveDateTime;
 use netcdf::{self, FileMut};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 pub fn init_netcdf_output(
+    output_dir: PathBuf,
     filename: &str,
     num_flowpaths: usize,
     timesteps: Vec<f64>,
     reference_time: &NaiveDateTime,
 ) -> Result<Arc<Mutex<FileMut>>> {
     // Create NetCDF file
-    let mut file = netcdf::create(filename)
+    let mut file = netcdf::create(output_dir.join(filename))
         .with_context(|| format!("Failed to create NetCDF file: {}", filename))?;
 
     // Add dimensions
