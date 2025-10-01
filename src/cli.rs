@@ -25,6 +25,7 @@ pub struct Config {
     pub internal_timestep_seconds: usize,
     pub output_dir: PathBuf,
     pub kernel: MuskingumCungeKernel,
+    pub use_lstm: bool,
 }
 
 pub fn get_args() -> Result<Config> {
@@ -51,5 +52,6 @@ pub fn get_args() -> Result<Config> {
         internal_timestep_seconds: args.internal_timestep_seconds,
         output_dir,
         kernel: args.kernel,
+        use_lstm: args.use_lstm,
     })
 }

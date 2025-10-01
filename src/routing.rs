@@ -2,8 +2,14 @@ use crate::config::ChannelParams;
 use crate::io::csv::load_external_flows;
 use crate::io::netcdf::{write_batch, write_output};
 use crate::io::results::SimulationResults;
+<<<<<<< HEAD
 use crate::kernel;
 use crate::kernel::muskingum::MuskingumCungeKernel;
+=======
+use crate::lstm_flow; // Import the module, not specific types
+use crate::lstm_flow::LstmFlowGenerator;
+use crate::mc_kernel;
+>>>>>>> d05b661 (working with lstm but slow)
 use crate::network::NetworkTopology;
 use crate::state::NodeStatus;
 use anyhow::Result;
@@ -11,6 +17,7 @@ use indicatif::ProgressBar;
 use netcdf::FileMut;
 use std::cmp::min;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::atomic::AtomicUsize;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -32,7 +39,7 @@ enum SchedulerMessage {
     Shutdown,
 }
 
-// Process all timesteps for a single node (unchanged)
+// Process all timesteps for a single node with LSTM option
 fn process_node_all_timesteps(
     kernel: MuskingumCungeKernel,
     node_id: &u32,
@@ -40,6 +47,8 @@ fn process_node_all_timesteps(
     channel_params: &ChannelParams,
     max_timesteps: usize,
     dt: f32,
+    lstm_generator: Option<&LstmFlowGenerator>, // Add LSTM generator parameter
+    use_lstm: bool,                             // Flag to control LSTM usage
 ) -> Result<SimulationResults> {
     let node = topology
         .nodes
@@ -52,14 +61,36 @@ fn process_node_all_timesteps(
         .area_sqkm
         .ok_or_else(|| anyhow::anyhow!("Node {} has no area defined", node_id))?;
 
-    let mut external_flows =
-        load_external_flows(node.qlat_file.clone(), &node.id, Some(&"Q_OUT"), area)?;
+    // Get external flows either from LSTM or CSV
+    let mut external_flows = if use_lstm {
+        if let Some(lstm_gen) = lstm_generator {
+            // Try to generate flows using LSTM
+            match lstm_gen.generate_flows_for_node(*node_id, area, max_timesteps) {
+                Ok(flows) => flows,
+                Err(e) => {
+                    // Fall back to CSV if LSTM fails
+                    eprintln!(
+                        "LSTM generation failed for node {}: {}. Falling back to CSV.",
+                        node_id, e
+                    );
+                    load_external_flows(node.qlat_file.clone(), &node.id, Some(&"Q_OUT"), area)?
+                }
+            }
+        } else {
+            // No LSTM generator provided, use CSV
+            load_external_flows(node.qlat_file.clone(), &node.id, Some(&"Q_OUT"), area)?
+        }
+    } else {
+        // Use CSV as requested
+        load_external_flows(node.qlat_file.clone(), &node.id, Some(&"Q_OUT"), area)?
+    };
 
     let s0 = if channel_params.s0 == 0.0 {
         0.00001
     } else {
         channel_params.s0
     };
+
     let mut inflow = node
         .inflow_storage
         .lock()
@@ -85,8 +116,13 @@ fn process_node_all_timesteps(
     let mut qup = 0.0;
     let mut qdp = 0.0;
     let mut depth_p = 0.0;
-    // -1 because the input files have one additional timestep
-    let upsampling = max_timesteps / (external_flows.len() - 1);
+
+    // Calculate upsampling factor if needed
+    let upsampling = if use_lstm {
+        1 // LSTM already provides data at internal timestep resolution
+    } else {
+        max_timesteps / (external_flows.len() - 1) // Original CSV logic
+    };
 
     let mut external_flow = 0.0;
     let mut upstream_flow = 0.0;
@@ -154,7 +190,7 @@ fn process_node_all_timesteps(
 fn writer_thread(
     receiver: Receiver<WriterMessage>,
     output_file: Arc<Mutex<FileMut>>,
-    batch_size: usize, // e.g., 100 nodes
+    batch_size: usize,
 ) -> Result<()> {
     let mut batch = Vec::new();
 
@@ -272,7 +308,7 @@ fn scheduler_thread(
     Ok(())
 }
 
-// Worker thread - now just receives work and processes it
+// Worker thread with per-thread LSTM generator
 fn worker_thread(
     kernel: MuskingumCungeKernel,
     work_rx: Receiver<WorkerMessage>,
@@ -283,19 +319,42 @@ fn worker_thread(
     dt: f32,
     writer_tx: Sender<WriterMessage>,
     progress_bar: Arc<ProgressBar>,
+    lstm_config: Option<Arc<lstm_flow::NgenLstmConfig>>, // Shared config only
+    use_lstm: bool,
 ) -> Result<()> {
+    // Create per-thread LSTM generator if needed
+    let lstm_generator = if use_lstm && lstm_config.is_some() {
+        match lstm_flow::LstmFlowGenerator::new(lstm_config.unwrap().root_dir.clone()) {
+            Ok(generator) => Some(generator),
+            Err(e) => {
+                eprintln!("Failed to create LSTM generator for worker thread: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     loop {
         match work_rx.recv() {
             Ok(WorkerMessage::ProcessNode(node_id)) => {
                 // Process the node
                 if let Some(params) = channel_params_map.get(&node_id) {
                     match process_node_all_timesteps(
+<<<<<<< HEAD
                         kernel,
+=======
+>>>>>>> d05b661 (working with lstm but slow)
                         &node_id,
                         &topology,
                         params,
                         max_timesteps,
                         dt,
+<<<<<<< HEAD
+=======
+                        lstm_generator.as_ref(),
+                        use_lstm && lstm_generator.is_some(),
+>>>>>>> d05b661 (working with lstm but slow)
                     ) {
                         Ok(results) => {
                             let results_arc = Arc::new(results);
@@ -367,7 +426,7 @@ fn worker_thread(
     Ok(())
 }
 
-// Main parallel routing function
+// Main parallel routing function with LSTM support
 pub fn process_routing_parallel(
     kernel: MuskingumCungeKernel,
     topology: &NetworkTopology,
@@ -377,10 +436,55 @@ pub fn process_routing_parallel(
     output_file: Arc<Mutex<FileMut>>,
     progress_bar: Arc<ProgressBar>,
 ) -> Result<()> {
+    process_routing_parallel_with_lstm(
+        topology,
+        channel_params_map,
+        max_timesteps,
+        dt,
+        output_file,
+        progress_bar,
+        None,  // No LSTM by default
+        false, // Don't use LSTM by default
+    )
+}
+
+// New function that supports LSTM
+pub fn process_routing_parallel_with_lstm(
+    topology: &NetworkTopology,
+    channel_params_map: &HashMap<u32, ChannelParams>,
+    max_timesteps: usize,
+    dt: f32,
+    output_file: Arc<Mutex<FileMut>>,
+    progress_bar: Arc<ProgressBar>,
+    root_dir: Option<PathBuf>, // Root directory for LSTM config
+    use_lstm: bool,            // Flag to enable LSTM
+) -> Result<()> {
     let total_nodes = topology.nodes.len();
     let completed_count = Arc::new(AtomicUsize::new(0));
     let topology_arc = Arc::new(topology.clone());
     let channel_params_arc = Arc::new(channel_params_map.clone());
+
+    // Initialize shared LSTM configuration if requested
+    let lstm_config = if use_lstm {
+        if let Some(dir) = root_dir {
+            println!("Initializing LSTM configuration...");
+            match lstm_flow::NgenLstmConfig::new(dir) {
+                Ok(config) => Some(Arc::new(config)),
+                Err(e) => {
+                    eprintln!(
+                        "Failed to initialize LSTM config: {}. Falling back to CSV.",
+                        e
+                    );
+                    None
+                }
+            }
+        } else {
+            eprintln!("LSTM requested but no root directory provided. Using CSV.");
+            None
+        }
+    } else {
+        None
+    };
 
     // Create channels
     let (writer_tx, writer_rx) = mpsc::channel();
@@ -406,6 +510,7 @@ pub fn process_routing_parallel(
         let writer = writer_tx.clone();
         let scheduler = scheduler_tx.clone();
         let pb = Arc::clone(&progress_bar);
+        let lstm_cfg = lstm_config.clone(); // Clone the config Arc
 
         let handle = thread::spawn(move || {
             if let Err(e) = worker_thread(
@@ -418,6 +523,8 @@ pub fn process_routing_parallel(
                 dt,
                 writer,
                 pb,
+                lstm_cfg, // Pass config, not generator
+                use_lstm,
             ) {
                 eprintln!("Worker {} error: {}", i, e);
             }
