@@ -158,12 +158,16 @@ fn writer_thread(
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 // Write partial batch on timeout to avoid holding data too long
-                if !batch.is_empty() && batch.len() > batch_size / 2 {
+                if !batch.is_empty() {
                     write_batch(&output_file, &batch)?;
                     batch.clear();
                 }
             }
             Err(e) => {
+                if !batch.is_empty() {
+                    write_batch(&output_file, &batch)?;
+                    batch.clear();
+                }
                 eprintln!("Writer thread channel error: {}", e);
                 break;
             }
