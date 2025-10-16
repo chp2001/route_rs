@@ -13,6 +13,7 @@ use crate::mc_kernel;
 use crate::network::NetworkTopology;
 use crate::state::NodeStatus;
 use anyhow::Result;
+use burn::backend::Candle;
 use indicatif::ProgressBar;
 use netcdf::FileMut;
 use std::cmp::min;
@@ -47,8 +48,8 @@ fn process_node_all_timesteps(
     channel_params: &ChannelParams,
     max_timesteps: usize,
     dt: f32,
-    lstm_generator: Option<&LstmFlowGenerator>, // Add LSTM generator parameter
-    use_lstm: bool,                             // Flag to control LSTM usage
+    lstm_generator: Option<&LstmFlowGenerator<Candle>>, // Add LSTM generator parameter
+    use_lstm: bool,                                     // Flag to control LSTM usage
 ) -> Result<SimulationResults> {
     let node = topology
         .nodes

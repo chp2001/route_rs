@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use burn::backend::Candle;
 use burn::nn::LstmState;
 use burn::prelude::*;
 use burn::record::{FullPrecisionSettings, Recorder};
@@ -300,22 +299,22 @@ struct TrainingScalars {
     output_std: f32,
 }
 
-struct ModelInstance {
-    model: NextgenLstm<Candle>,
+struct ModelInstance<B: Backend> {
+    model: NextgenLstm<B>,
     metadata: ModelMetadata,
     scalars: TrainingScalars,
-    lstm_state: Option<LstmState<Candle, 2>>,
+    lstm_state: Option<LstmState<B, 2>>,
 }
 
-pub struct LstmFlowGenerator {
+pub struct LstmFlowGenerator<B: Backend> {
     root_dir: PathBuf,
     forcing_file: netcdf::File,
     divide_index: HashMap<String, usize>,
     total_timesteps: usize,
-    device: <Candle as Backend>::Device,
+    device: B::Device,
 }
 
-impl LstmFlowGenerator {
+impl<B: Backend> LstmFlowGenerator<B> {
     pub fn new(root_dir: PathBuf) -> Result<Self> {
         // Open forcing file
         let forcing_path = root_dir.join("forcings").join("forcings.nc");
@@ -353,7 +352,7 @@ impl LstmFlowGenerator {
         &self,
         training_config_path: &Path,
         config: &serde_yaml::Value,
-    ) -> Result<ModelInstance> {
+    ) -> Result<ModelInstance<B>> {
         let training_config = fs::read_to_string(training_config_path)?;
         let training_config: serde_yaml::Value = serde_yaml::from_str(&training_config)?;
 
@@ -651,7 +650,11 @@ impl LstmFlowGenerator {
         Ok(all_flows)
     }
 
-    fn run_single_model(&self, model_instance: &mut ModelInstance, inputs: &[f32]) -> Result<f32> {
+    fn run_single_model(
+        &self,
+        model_instance: &mut ModelInstance<B>,
+        inputs: &[f32],
+    ) -> Result<f32> {
         // Scale inputs
         let scaled_inputs: Vec<f32> = inputs
             .iter()
