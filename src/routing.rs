@@ -491,7 +491,9 @@ pub fn process_routing_parallel_with_lstm(
     let (scheduler_tx, scheduler_rx) = mpsc::channel();
 
     // Create worker channels
+    // let num_threads = 10;
     let num_threads = num_cpus::get();
+
     println!(
         "Using {} worker threads for parallel processing",
         num_threads

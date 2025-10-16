@@ -171,7 +171,10 @@ fn get_simulation_params_lstm(root_dir: &std::path::PathBuf) -> Result<(usize, N
     let time_var = forcing_file
         .variable("Time")
         .context("Couldn't find variable 'Time'")?;
-    let max_external_steps = time_var.len();
+    let max_external_steps = forcing_file
+        .dimension_len("time")
+        .context("Couldn't find variable 'Time'")?;
+    // let max_external_steps = time_var.len();
 
     // Get reference time (you may need to adjust this based on your forcing file structure)
     // This assumes the forcing file has a reference_time attribute or similar

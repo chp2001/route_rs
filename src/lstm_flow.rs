@@ -43,9 +43,8 @@ impl NgenLstmConfig {
 
         // Get total timesteps
         let total_timesteps = forcing_file
-            .variable("Time")
-            .context("Couldn't find variable 'Time'")?
-            .len();
+            .dimension_len("time")
+            .context("Couldn't find variable 'Time'")?;
 
         Ok(Self {
             root_dir,
@@ -338,9 +337,8 @@ impl LstmFlowGenerator {
 
         // Get total timesteps from forcing file
         let total_timesteps = forcing_file
-            .variable("Time")
-            .context("Couldn't find variable 'Time'")?
-            .len();
+            .dimension_len("time")
+            .context("Couldn't find variable 'Time'")?;
 
         Ok(Self {
             root_dir,
@@ -387,7 +385,7 @@ impl LstmFlowGenerator {
 
         // Ensure conversion if needed
         if !converted_path.exists() || !burn_dir.join("weights.json").exists() {
-            self.convert_model_weights(&model_path, training_config_path)?;
+            //self.convert_model_weights(&model_path, training_config_path)?;
         }
 
         // Load metadata
@@ -594,22 +592,31 @@ impl LstmFlowGenerator {
         let output_scale_factor_cms =
             (1.0 / 1000.0) * (area_sqkm * 1000.0 * 1000.0) * (1.0 / 3600.0);
 
+        // Gather all forcing values at once for all timesteps
+        let forcing_timesteps = self.total_timesteps;
+        let time_range = 0..forcing_timesteps;
+
+        let all_apcp: Vec<f32> = apcp.get_values((current_index, time_range.clone()))?;
+        let all_tmp: Vec<f32> = tmp.get_values((current_index, time_range.clone()))?;
+        let all_dlwrf: Vec<f32> = dlwrf.get_values((current_index, time_range.clone()))?;
+        let all_pres: Vec<f32> = pres.get_values((current_index, time_range.clone()))?;
+        let all_spfh: Vec<f32> = spfh.get_values((current_index, time_range.clone()))?;
+        let all_dswrf: Vec<f32> = dswrf.get_values((current_index, time_range.clone()))?;
+        let all_ugrd: Vec<f32> = ugrd.get_values((current_index, time_range.clone()))?;
+        let all_vgrd: Vec<f32> = vgrd.get_values((current_index, time_range))?;
+
+        // Now run each timestep with pre-gathered forcing values
         let mut all_flows = VecDeque::new();
-        let forcing_timesteps = self.total_timesteps.min(max_timesteps / 3600);
-
         for time_idx in 0..forcing_timesteps {
-            let var_index = (current_index, time_idx);
-
-            // Gather forcing values
             let forcing_values = vec![
-                apcp.get_value::<f32, _>(var_index)?,
-                tmp.get_value::<f32, _>(var_index)?,
-                dlwrf.get_value::<f32, _>(var_index)?,
-                pres.get_value::<f32, _>(var_index)?,
-                spfh.get_value::<f32, _>(var_index)?,
-                dswrf.get_value::<f32, _>(var_index)?,
-                ugrd.get_value::<f32, _>(var_index)?,
-                vgrd.get_value::<f32, _>(var_index)?,
+                all_apcp[time_idx],
+                all_tmp[time_idx],
+                all_dlwrf[time_idx],
+                all_pres[time_idx],
+                all_spfh[time_idx],
+                all_dswrf[time_idx],
+                all_ugrd[time_idx],
+                all_vgrd[time_idx],
                 elevation,
                 slope,
             ];
