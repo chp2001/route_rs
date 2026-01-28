@@ -525,7 +525,7 @@ impl<B: Backend> LstmFlowGenerator<B> {
         forcing_map.insert(
             "APCP_surface".to_string(),
             self.forcing_file
-                .variable("precip_rate")
+                .variable("APCP_surface")
                 .ok_or(anyhow::anyhow!("Unable to load APCP_surface"))?
                 .get_values((current_index, time_range.clone()))?,
         );
