@@ -45,7 +45,7 @@ fn main() -> Result<()> {
     let channel_params_map = network::load_channel_parameters(&conn, &topology, &column_config)?;
 
     // Set up CSV output if needed
-    let mut csv_writer = if matches!(output_format, OutputFormat::Csv | OutputFormat::Both) {
+    let csv_writer = if matches!(output_format, OutputFormat::Csv | OutputFormat::Both) {
         Some(io::csv::create_csv_writer("network_routing_results.csv")?)
     } else {
         None

@@ -111,7 +111,7 @@ pub fn submuskingcunge(
             let km_0 = if ck_0 > 0.0 { dt.max(dx / ck_0) } else { dt };
 
             // For interval 1, X starts at 0 (will iterate once)
-            let x_0 = 0.0;
+            let _x_0 = 0.0;
             let d_0 = km_0 + dt_half;
             c1 = dt_half / d_0;
             c2 = dt_half / d_0;
@@ -286,7 +286,7 @@ pub fn submuskingcunge(
     depthc = h;
 
     // Calculate Courant number
-    let (mut ck, cn) = if depthc > 0.0 && calculate_courant {
+    let (ck, cn) = if depthc > 0.0 && calculate_courant {
         let mut h_gt_bf = (depthc - bfd).max(0.0);
         let mut h_lt_bf = bfd.min(depthc);
 

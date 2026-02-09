@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 pub fn init_netcdf_output(
     output_dir: PathBuf,
     filename: &str,
-    num_flowpaths: usize,
+    _num_flowpaths: usize,
     timesteps: Vec<f64>,
     reference_time: &NaiveDateTime,
 ) -> Result<Arc<Mutex<FileMut>>> {
