@@ -201,7 +201,7 @@ fn scheduler_thread(
     scheduler_rx: Receiver<SchedulerMessage>,
     worker_tx: Vec<Sender<WorkerMessage>>,
     total_nodes: usize,
-    completed_count: Arc<AtomicUsize>,
+    _completed_count: Arc<AtomicUsize>,
 ) -> Result<()> {
     // Track which nodes are ready to process
     let mut ready_nodes = VecDeque::new();
