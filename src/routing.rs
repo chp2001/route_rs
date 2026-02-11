@@ -5,7 +5,7 @@ use crate::io::results::SimulationResults;
 use crate::kernel::muskingum::MuskingumCungeKernel;
 use crate::network::NetworkTopology;
 use crate::state::NodeStatus;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use indicatif::ProgressBar;
 use netcdf::FileMut;
 use std::cmp::min;
@@ -79,6 +79,14 @@ fn process_node_all_timesteps(
 
     if external_flows.len() == 0 {
         external_flows.resize(max_timesteps, 0.0);
+    } else if external_flows.len() == 1 {
+        // Only a single external flow value breaks the upsampling logic,
+        // so we throw an error if the file only contains one value (which is likely a mistake)
+        return Err(anyhow::anyhow!(
+            "External flow file for node {} only contains one value, which is not sufficient for routing. Please check the file: {:?}",
+            node_id,
+            node.qlat_file
+        )).with_context(|| format!("Failed to load external flows for node {}: {:?}", node_id, node.qlat_file));
     }
 
     let mut qup = 0.0;
@@ -88,7 +96,7 @@ fn process_node_all_timesteps(
     let upsampling = max_timesteps / (external_flows.len() - 1);
 
     let mut external_flow = 0.0;
-    let mut upstream_flow = 0.0;
+    // let mut upstream_flow = 0.0;
 
     for _timestep in 0..max_timesteps {
         if _timestep % upsampling == 0 {
@@ -100,7 +108,7 @@ fn process_node_all_timesteps(
                 )
             })?;
         }
-        upstream_flow = inflow.pop_front().unwrap();
+        let upstream_flow = inflow.pop_front().unwrap();
 
         let result = kernel.exec(
             qup,
@@ -344,7 +352,13 @@ fn worker_thread(
                             }
                         }
                         Err(e) => {
-                            eprintln!("Error processing node {}: {}", node_id, e);
+                            let mut error_message = format!("Error processing node {}: {}", node_id, e);
+                            // if error context, elaborate on it
+                            if let Some(context) = e.chain().skip(1).next() {
+                                error_message.push_str(&format!("\nContext: {}", context));
+                            }
+                            eprintln!("{}", error_message);
+                            // break;
                         }
                     }
 
