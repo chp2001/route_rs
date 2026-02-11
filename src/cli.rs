@@ -35,6 +35,23 @@ pub fn get_args() -> Result<Config> {
     let config_dir = root_dir.join("config");
     let output_dir = root_dir.join("outputs").join("troute");
 
+    // Check directories valid
+    if !root_dir.exists() || !root_dir.is_dir() {
+        return Err(anyhow::anyhow!("Given root directory does not exist or is not a directory: {:?}", root_dir))
+            .with_context(|| format!("Failed to access root directory: {:?}", root_dir));
+    }
+
+    let mut missing_dirs = Vec::new();
+    for dir in [&csv_dir, &config_dir, &output_dir] {
+        if !dir.exists() || !dir.is_dir() {
+            missing_dirs.push(dir);
+        }
+    }
+    if !missing_dirs.is_empty() {
+        return Err(anyhow::anyhow!("Missing required directories: {:?}", missing_dirs))
+            .with_context(|| format!("Failed to access required directories: {:?}", missing_dirs));
+    }
+    
     // Find the .gpkg file in the config directory
     let gpkg_file = config_dir
         .read_dir()
