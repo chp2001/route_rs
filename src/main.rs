@@ -21,14 +21,22 @@ use io::netcdf::init_netcdf_output;
 use network::build_network_topology;
 use routing::process_routing_parallel;
 
+static OUTPUT_TYPE: &str = "NetCDF"; // or "CSV" or "Both"
+
 fn main() -> Result<()> {
     // Configuration
     //let (_, csv_dir, db_path, internal_timestep_seconds, output_dir)
-    let config = get_args()?;
-    let dt = config.internal_timestep_seconds as f32;
-    let db_path = config.gpkg_file;
-    let csv_dir = config.csv_dir;
-    let output_format = OutputFormat::NetCdf;
+    let config: cli::Config = get_args()?;
+    let dt: f32 = config.internal_timestep_seconds as f32;
+    let db_path: std::path::PathBuf = config.gpkg_file;
+    let csv_dir: std::path::PathBuf = config.csv_dir;
+    // let output_format: OutputFormat = OutputFormat::NetCdf;
+    let output_format: OutputFormat = match OUTPUT_TYPE {
+        "CSV" => OutputFormat::Csv,
+        "NetCDF" => OutputFormat::NetCdf,
+        "Both" => OutputFormat::Both,
+        _ => return Err(anyhow::anyhow!("Invalid output type: {}", OUTPUT_TYPE)),
+    };
 
     // Initialize SQLite connection
     let conn = rusqlite::Connection::open(&db_path)
