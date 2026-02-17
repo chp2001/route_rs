@@ -2,7 +2,7 @@ use crate::config::ChannelParams;
 use crate::io::csv::load_external_flows;
 use crate::io::netcdf::write_batch;
 use crate::io::results::SimulationResults;
-use crate::kernel::muskingum::MuskingumCungeKernel;
+use crate::kernel::muskingum::{MuskingumCungeInput, MuskingumCungeKernel, MuskingumCungeResult};
 use crate::network::NetworkTopology;
 use crate::state::NodeStatus;
 use anyhow::{Context, Result};
@@ -110,21 +110,24 @@ fn process_node_all_timesteps(
         }
         let upstream_flow = inflow.pop_front().unwrap();
 
-        let result = kernel.exec(
-            qup,
-            upstream_flow,
-            qdp,
-            external_flow,
-            dt,
-            s0,
-            channel_params.dx,
-            channel_params.n,
-            channel_params.cs,
-            channel_params.bw,
-            channel_params.tw,
-            channel_params.twcc,
-            channel_params.ncc,
-            depth_p,
+        let result: MuskingumCungeResult = kernel.exec(
+            &MuskingumCungeInput {
+                dt,
+                qup,
+                quc: upstream_flow,
+                qdp,
+                ql: external_flow,
+                dx: channel_params.dx,
+                bw: channel_params.bw,
+                tw: channel_params.tw,
+                tw_cc: channel_params.twcc,
+                n: channel_params.n,
+                n_cc: channel_params.ncc,
+                cs: channel_params.cs,
+                s0,
+                velp: 0.0, // unused
+                depthp: depth_p,
+            },
             false,
         );
         let (qdc, velc, depthc) = (result.qdc, result.velc, result.depthc);

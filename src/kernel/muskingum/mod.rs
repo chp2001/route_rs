@@ -109,95 +109,38 @@ pub enum MuskingumCungeKernel {
     TRouteLegacy,
     CMuskingumCunge,
 }
+macro_rules! call_kernel {
+    ($fn:path, $i:expr, $courant:expr) => {
+        $fn(
+            $i.qup, $i.quc, $i.qdp, $i.ql, $i.dt, $i.s0, $i.dx, $i.n, $i.cs, $i.bw, $i.tw,
+            $i.tw_cc, $i.n_cc, $i.depthp, $courant,
+        )
+    };
+}
+
 impl MuskingumCungeKernel {
     pub fn exec(
         self,
-        qup: f32,
-        quc: f32,
-        qdp: f32,
-        ql: f32,
-        dt: f32,
-        so: f32,
-        dx: f32,
-        n: f32,
-        cs: f32,
-        bw: f32,
-        tw: f32,
-        tw_cc: f32,
-        n_cc: f32,
-        depth_p: f32,
+        input: &MuskingumCungeInput,
         calculate_courant: bool,
     ) -> MuskingumCungeResult {
-        // println!("running kernel: {self}");
         match self {
-            MuskingumCungeKernel::RouteRs => mc_kernel::submuskingcunge(
-                qup,
-                quc,
-                qdp,
-                ql,
-                dt,
-                so,
-                dx,
-                n,
-                cs,
-                bw,
-                tw,
-                tw_cc,
-                n_cc,
-                depth_p,
-                calculate_courant,
+            MuskingumCungeKernel::RouteRs => {
+                call_kernel!(mc_kernel::submuskingcunge, input, calculate_courant)
+            }
+            MuskingumCungeKernel::TRouteModernized => call_kernel!(
+                t_route::fortran_modernized::submuskingcunge,
+                input,
+                calculate_courant
             ),
-            MuskingumCungeKernel::TRouteModernized => t_route::fortran_modernized::submuskingcunge(
-                qup,
-                quc,
-                qdp,
-                ql,
-                dt,
-                so,
-                dx,
-                n,
-                cs,
-                bw,
-                tw,
-                tw_cc,
-                n_cc,
-                depth_p,
-                calculate_courant,
+            MuskingumCungeKernel::TRouteLegacy => call_kernel!(
+                t_route::fortran_legacy::submuskingcunge,
+                input,
+                calculate_courant
             ),
-            MuskingumCungeKernel::TRouteLegacy => t_route::fortran_legacy::submuskingcunge(
-                qup,
-                quc,
-                qdp,
-                ql,
-                dt,
-                so,
-                dx,
-                n,
-                cs,
-                bw,
-                tw,
-                tw_cc,
-                n_cc,
-                depth_p,
-                calculate_courant,
-            ),
-            MuskingumCungeKernel::CMuskingumCunge => c_mc::submuskingcunge(
-                qup,
-                quc,
-                qdp,
-                ql,
-                dt,
-                so,
-                dx,
-                n,
-                cs,
-                bw,
-                tw,
-                tw_cc,
-                n_cc,
-                depth_p,
-                calculate_courant,
-            ),
+            MuskingumCungeKernel::CMuskingumCunge => {
+                call_kernel!(c_mc::submuskingcunge, input, calculate_courant)
+            }
         }
     }
 }
