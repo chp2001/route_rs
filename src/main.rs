@@ -27,10 +27,10 @@ fn main() -> Result<()> {
     // Configuration
     //let (_, csv_dir, db_path, internal_timestep_seconds, output_dir)
     let config: cli::Config = get_args()?;
-    run_routing(config)
+    run_routing(config, false)
 }
 
-fn run_routing(config: cli::Config) -> Result<()> {
+fn run_routing(config: cli::Config, quiet: bool) -> Result<()> {
     let dt: f32 = config.internal_timestep_seconds as f32;
     let db_path: std::path::PathBuf = config.gpkg_file;
     let csv_dir: std::path::PathBuf = config.csv_dir;
@@ -106,6 +106,9 @@ fn run_routing(config: cli::Config) -> Result<()> {
             .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} nodes ({eta})")?
             .progress_chars("#>-")
     );
+    if quiet {
+        pb.set_draw_target(indicatif::ProgressDrawTarget::hidden());
+    }
 
     // Run parallel routing
     println!("\nStarting parallel wave-front routing...");
@@ -297,7 +300,7 @@ mod tests {
     #[test]
     fn test_run_routing() {
         let config: cli::Config = setup_test_config();
-        let result = run_routing(config);
+        let result = run_routing(config, true);
         assert!(result.is_ok());
     }
 
@@ -314,7 +317,7 @@ mod tests {
             output_dir: std::path::PathBuf::from("./tests/invalid_test/outputs/troute"),
             kernel: muskingum::MuskingumCungeKernel::TRouteModernized,
         };
-        let result = run_routing(invalid_config);
+        let result = run_routing(invalid_config, true);
         assert!(result.is_err());
         assert!(
             result
