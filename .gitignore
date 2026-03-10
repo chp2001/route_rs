@@ -2,3 +2,5 @@
 muskingcunge_results.csv
 troute_output*.nc
 .vscode/
+__pycache__/
+*.pyc
