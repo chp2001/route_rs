@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
         .expect("\n\x1b[31m'gfortran --version' failed, check that it is installed\x1b[0m\n\n");
 
     let command_string_compile = format!(
-        "gfortran -g -c -O2  -lgfortran -lgcc -static-libgfortran -static-libgcc -nodefaultlibs {fortran_src_files} -J."
+        "gfortran -g -c -O2 -fPIC -lgfortran -lgcc -static-libgfortran -static-libgcc -nodefaultlibs {fortran_src_files} -J."
     );
 
     let _output_compile = std::process::Command::new("sh")
