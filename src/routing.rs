@@ -193,12 +193,11 @@ fn writer_thread(
                     batch.clear();
                 }
             }
-            Err(e) => {
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                // All senders dropped — normal shutdown
                 if !batch.is_empty() {
                     write_batch(&output_file, &batch)?;
-                    batch.clear();
                 }
-                eprintln!("Writer thread channel error: {}", e);
                 break;
             }
         }
