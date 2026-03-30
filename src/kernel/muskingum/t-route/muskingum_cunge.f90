@@ -237,6 +237,13 @@ subroutine secant2_h(z, bw, bfd, twcc, s0, n, ncc, dt, dx, &
     X = 0.0_real32
     D = 0.0_real32
 
+    Qj = 0.0_real32;
+    C1 = 0.0_real32;
+    C2 = 0.0_real32;
+    C3 = 0.0_real32;
+    C4 = 0.0_real32;
+    X = 0.0_real32;
+
     !--upper interval -----------
     upper_interval = 1
     !--lower interval -----------
