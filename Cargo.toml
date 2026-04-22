@@ -1,6 +1,6 @@
 [package]
 name = "rs_route"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 description = "A cli tool for muskingum-cunge routing in ngiab"
 license = "MIT"
@@ -11,6 +11,9 @@ anyhow = "1.0.98"
 [[bin]]
 name = "rs-route"
 path = "src/main.rs"
+
+[features]
+static = ["netcdf/static", "rusqlite/bundled"]
 
 [dependencies]
 anyhow = "1.0.98"
