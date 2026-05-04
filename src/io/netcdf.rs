@@ -5,6 +5,16 @@ use netcdf::{self, FileMut};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+// Silence HDF5 diagnostic output (e.g. "unable to determine if file is accessible")
+// that occurs when netcdf::create checks for an existing file.
+unsafe extern "C" {
+    fn H5Eset_auto2(
+        estack_id: i64,
+        func: Option<unsafe extern "C" fn() -> i32>,
+        client_data: *mut std::ffi::c_void,
+    ) -> i32;
+}
+
 pub fn init_netcdf_output(
     output_dir: PathBuf,
     filename: &str,
@@ -12,6 +22,11 @@ pub fn init_netcdf_output(
     timesteps: Vec<f64>,
     reference_time: &NaiveDateTime,
 ) -> Result<Arc<Mutex<FileMut>>> {
+    // Suppress HDF5 diagnostic messages during file creation
+    unsafe {
+        H5Eset_auto2(0, None, std::ptr::null_mut());
+    }
+
     // Create NetCDF file
     let mut file = netcdf::create(output_dir.join(filename))
         .with_context(|| format!("Failed to create NetCDF file: {}", filename))?;
@@ -76,7 +91,7 @@ pub fn init_netcdf_output(
     depth_var.put_attribute("missing_value", -9999.0f32)?;
 
     // Global attributes
-    file.add_attribute("TITLE", "OUTPUT FROM ROUTE_RS")?;
+    file.add_attribute("TITLE", "OUTPUT FROM RS-ROUTE")?;
     file.add_attribute(
         "file_reference_time",
         reference_time.format("%Y-%m-%d_%H:%M:%S").to_string(),
@@ -104,7 +119,7 @@ pub fn write_batch(
         .ok_or_else(|| anyhow::anyhow!("feature_id variable not found"))?;
     let start_idx = feature_var.len();
 
-    // Prepare all data arrays
+    // Prepare all data arrays (already downsampled by workers)
     let mut all_feature_ids = Vec::with_capacity(batch.len());
     let mut all_flows = Vec::new();
     let mut all_velocities = Vec::new();
@@ -117,16 +132,9 @@ pub fn write_batch(
 
     for results in batch {
         all_feature_ids.push(results.feature_id);
-
-        // Downsample data
-        let actual_timesteps = results.flow_data.len();
-        let downsampling = actual_timesteps / expected_timesteps;
-
-        for i in (downsampling - 1..actual_timesteps).step_by(downsampling) {
-            all_flows.push(results.flow_data[i]);
-            all_velocities.push(results.velocity_data[i]);
-            all_depths.push(results.depth_data[i]);
-        }
+        all_flows.extend_from_slice(&results.flow_data);
+        all_velocities.extend_from_slice(&results.velocity_data);
+        all_depths.extend_from_slice(&results.depth_data);
     }
 
     // Write all feature IDs at once
@@ -179,7 +187,7 @@ pub fn write_batch(
 }
 
 // Function to write results to NetCDF
-pub fn write_output(
+pub fn _write_output(
     output_file: &Arc<Mutex<FileMut>>,
     results: &Arc<SimulationResults>,
 ) -> Result<()> {

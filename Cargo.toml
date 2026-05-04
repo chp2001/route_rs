@@ -1,21 +1,25 @@
 [package]
-name = "route_rs"
-version = "0.2.0"
+name = "rs_route"
+version = "0.3.1"
 edition = "2024"
 description = "A cli tool for muskingum-cunge routing in ngiab"
-license = "AGPL-3.0"
+license = "MIT"
 
 [build-dependencies]
-anyhow = "*"
+anyhow = "1.0.98"
 
 [[bin]]
-name = "force-build"
-path = "build.rs"
+name = "rs-route"
+path = "src/main.rs"
+
+[features]
+static = ["netcdf/static", "rusqlite/bundled"]
 
 [dependencies]
 anyhow = "1.0.98"
 chrono = "0.4.41"
-clap = { version = "4.5.38", features = ["derive", "string"] }
+clap = { version = "4.5.38", features = ["color", "derive", "string"] }
+colored = "3.1.1"
 csv = "1.3.1"
 indicatif = "0.17.11"
 netcdf = "0.11.0"
